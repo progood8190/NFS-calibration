@@ -102,7 +102,7 @@ const overlay = document.createElement('div');
 overlay.id = 'nfs-overlay';
 overlay.innerHTML = `
   <div id="nfs-modal">
-    <button id="nfs-close">✕</button>
+    <button id="nfs-close" style="display:none;">✕</button>
     <div id="nfs-title">NFS Calibration</div>
     <div id="nfs-subtitle">Auto-tunes Network Frame Shift for your connection</div>
     <div id="nfs-btn-wrap">
@@ -130,7 +130,9 @@ overlay.innerHTML = `
 `;
 document.body.appendChild(overlay);
 
-document.getElementById('nfs-close').onclick = () => {
+// Close button — hidden until calibration is done
+const closeBtn = document.getElementById('nfs-close');
+closeBtn.onclick = () => {
     overlay.remove();
     document.getElementById('nfs-ui-style')?.remove();
 };
@@ -138,10 +140,9 @@ document.getElementById('nfs-close').onclick = () => {
 document.getElementById('nfs-start-btn').onclick = () => {
     const btn = document.getElementById('nfs-start-btn');
     btn.disabled = true;
-
-    // Remove X button when calibration starts
-    const closeBtn = document.getElementById('nfs-close');
-    if (closeBtn) closeBtn.remove();
+    // Hide start button, keep X hidden during calibration
+    btn.style.display = 'none';
+    closeBtn.style.display = 'none';
 
     function onProgress(phase, data) {
         const p = document.getElementById('nfs-progress');
@@ -154,6 +155,7 @@ document.getElementById('nfs-start-btn').onclick = () => {
         (data) => onProgress(1, data),
         (data) => onProgress(2, data),
         (result1, result2) => {
+            // Show results card
             const card = document.getElementById('nfs-card');
             card.style.display = 'block';
             document.getElementById('nfs-card-logo').textContent = `${result2.clampedMin} | ${result2.clampedMax}`;
@@ -162,6 +164,14 @@ document.getElementById('nfs-start-btn').onclick = () => {
             document.getElementById('nfs-jitter-val').textContent = `Jitter: ${result2.avgJitter.toFixed(1)}ms`;
             document.getElementById('nfs-progress').textContent = `✅ Done! NFS set to min: ${result2.clampedMin} max: ${result2.clampedMax}`;
             document.getElementById('nfs-phase').textContent = `Test 1: ${result1.clampedMin}|${result1.clampedMax} → Final: ${result2.clampedMin}|${result2.clampedMax}`;
+
+            // Show refresh button instead of start button
+            const btnWrap = document.getElementById('nfs-btn-wrap');
+            btnWrap.innerHTML = `<button class="nfs-button" id="nfs-refresh-btn"><span>🔄 Refresh Tab</span></button>`;
+            document.getElementById('nfs-refresh-btn').onclick = () => location.reload();
+
+            // Now show the X close button
+            closeBtn.style.display = 'block';
         }
     );
 };
