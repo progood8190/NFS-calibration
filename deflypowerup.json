@@ -1,0 +1,10 @@
+{
+  "name": "Network Frame Shift",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "type": "javascript",
+  "scripts": [
+    "nfs-calibration.js",
+    "nfs-ui.js"
+  ]
+}
