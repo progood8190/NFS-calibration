@@ -84,16 +84,12 @@ style.textContent = `
 }
 .nfs-box:hover::before { opacity: 1; }
 .nfs-box:hover span { color: white !important; position: relative; z-index: 1; }
-
 .nfs-box1 { width: 70%; height: 70%; bottom: -70%; left: -70%; }
 .nfs-box1::before { background: radial-gradient(circle at 30% 107%, #1a1a2e 0%, #2d0a3e 60%, #0a1628 100%); }
-
 .nfs-box2 { width: 50%; height: 50%; bottom: -50%; left: -50%; transition-delay: 0.2s; }
 .nfs-box2::before { background: radial-gradient(circle at 30% 107%, #0a1628 0%, #1a2a1a 90%); }
-
 .nfs-box3 { width: 30%; height: 30%; bottom: -30%; left: -30%; transition-delay: 0.4s; }
 .nfs-box3::before { background: radial-gradient(circle at 30% 107%, #1a0a2e 0%, #0a1a2e 90%); }
-
 .nfs-box4 { width: 10%; height: 10%; bottom: -10%; left: -10%; transition-delay: 0.6s; }
 .nfs-card:hover { transform: scale(0.95); }
 .nfs-card:hover .nfs-box { bottom: -1px; left: -1px; }
@@ -117,22 +113,15 @@ overlay.innerHTML = `
       <div class="nfs-card" id="nfs-card" style="display:none;">
         <div class="background"></div>
         <div class="logo" id="nfs-card-logo">? | ?</div>
-
-        <!-- box1 = biggest = jitter (top when hovered) -->
         <div class="nfs-box nfs-box1">
           <span id="nfs-jitter-val" style="color:#000;">Jitter: —</span>
         </div>
-
-        <!-- box2 = middle = ping -->
         <div class="nfs-box nfs-box2">
           <span id="nfs-ping-val" style="color:#000;">Ping: —</span>
         </div>
-
-        <!-- box3 = smallest = fps (bottom) -->
         <div class="nfs-box nfs-box3">
           <span id="nfs-fps-val" style="color:#000;">FPS: —</span>
         </div>
-
         <div class="nfs-box nfs-box4"></div>
       </div>
     </div>
@@ -149,6 +138,10 @@ document.getElementById('nfs-close').onclick = () => {
 document.getElementById('nfs-start-btn').onclick = () => {
     const btn = document.getElementById('nfs-start-btn');
     btn.disabled = true;
+
+    // Remove X button when calibration starts
+    const closeBtn = document.getElementById('nfs-close');
+    if (closeBtn) closeBtn.remove();
 
     function onProgress(phase, data) {
         const p = document.getElementById('nfs-progress');
