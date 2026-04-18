@@ -1,6 +1,5 @@
 window.nfsCalibration = {
     running: false,
-    onComplete: null,
 
     move({ moveDir = 0, aimDir = 0, aimDist = 0, shooting = false } = {}) {
         var _ = new DataView(new ArrayBuffer(20));
@@ -29,6 +28,11 @@ window.nfsCalibration = {
         document.querySelector('#controls-nfs-min').value = min;
         document.querySelector('#controls-nfs-max').value = max;
         defly.changeControls();
+    },
+
+    getPing() {
+        const raw = document.querySelector('#fps')?.textContent?.match(/ping: (\d+)/)?.[1];
+        return raw ? parseInt(raw) : null;
     },
 
     runTest(label, onProgress, onComplete) {
@@ -61,26 +65,24 @@ window.nfsCalibration = {
         let scanInt = setInterval(() => {
             const now = performance.now();
             scanCount++;
+
+            // FPS from rAF counter
             const dt = now - lastFrameTime;
             const fps = (frameCount / dt) * 1000;
             frameCount = 0;
             lastFrameTime = now;
             allFPS.push(fps);
 
-            const sendTime = performance.now();
-            const posBeforeX = window.copter.x;
-            const posBeforeY = window.copter.y;
-            this.move({ moveDir: directions[dirIndex++ % 4] });
-
-            let pingPollInt = setInterval(() => {
-                if (window.copter.x !== posBeforeX || window.copter.y !== posBeforeY) {
-                    const ping = performance.now() - sendTime;
-                    allPings.push(ping);
-                    if (lastPingValue !== null) allJitters.push(Math.abs(ping - lastPingValue));
-                    lastPingValue = ping;
-                    clearInterval(pingPollInt);
+            // Ping directly from game's own display
+            const ping = this.getPing();
+            if (ping !== null) {
+                allPings.push(ping);
+                if (lastPingValue !== null) {
+                    const jitter = Math.abs(ping - lastPingValue);
+                    allJitters.push(jitter);
                 }
-            }, 4);
+                lastPingValue = ping;
+            }
 
             resyncesPerScan.push(resyncsSinceLastScan);
             resyncsSinceLastScan = 0;
@@ -88,6 +90,8 @@ window.nfsCalibration = {
             const avgFPS = allFPS.reduce((a, b) => a + b, 0) / allFPS.length;
             const avgPing = allPings.length > 0 ? allPings.reduce((a, b) => a + b, 0) / allPings.length : 0;
             const avgJitter = allJitters.length > 0 ? allJitters.reduce((a, b) => a + b, 0) / allJitters.length : 0;
+
+            console.log(`[${label}] Scan #${scanCount} | FPS: ${fps} | Avg FPS: ${avgFPS} | Ping: ${ping}ms | Avg Ping: ${avgPing}ms | Avg Jitter: ${avgJitter}ms | Resyncs: ${resyncTimestamps.length}`);
 
             if (onProgress) onProgress({ scanCount, fps, avgFPS, avgPing, avgJitter, totalResyncs: resyncTimestamps.length });
 
@@ -99,21 +103,24 @@ window.nfsCalibration = {
             clearInterval(shootInt);
             window.removeEventListener('resync', resyncListener);
 
-            const avgPing    = allPings.reduce((a, b) => a + b, 0) / allPings.length;
-            const minPing    = Math.min(...allPings);
-            const maxPing    = Math.max(...allPings);
-            const avgJitter  = allJitters.length > 0 ? allJitters.reduce((a, b) => a + b, 0) / allJitters.length : 0;
-            const maxJitter  = allJitters.length > 0 ? Math.max(...allJitters) : 0;
-            const avgFPS     = allFPS.reduce((a, b) => a + b, 0) / allFPS.length;
-            const minFPS     = Math.min(...allFPS);
-            const msPerFrame = 1000 / avgFPS;
+            const avgPing     = allPings.length > 0 ? allPings.reduce((a, b) => a + b, 0) / allPings.length : 0;
+            const minPing     = allPings.length > 0 ? Math.min(...allPings) : 0;
+            const maxPing     = allPings.length > 0 ? Math.max(...allPings) : 0;
+            const avgJitter   = allJitters.length > 0 ? allJitters.reduce((a, b) => a + b, 0) / allJitters.length : 0;
+            const maxJitter   = allJitters.length > 0 ? Math.max(...allJitters) : 0;
+            const avgFPS      = allFPS.reduce((a, b) => a + b, 0) / allFPS.length;
+            const minFPS      = Math.min(...allFPS);
+            const msPerFrame  = 1000 / avgFPS;
             const totalResyncs = resyncTimestamps.length;
             const resyncsPerSecond = totalResyncs / 30;
             const maxResyncsInOneScan = Math.max(...resyncesPerScan, 0);
+            const scansWithResyncs = resyncesPerScan.filter(r => r > 0).length;
 
-            const pingStdDev = Math.sqrt(allPings.reduce((a, b) => a + Math.pow(b - avgPing, 2), 0) / allPings.length);
+            const pingStdDev = allPings.length > 1
+                ? Math.sqrt(allPings.reduce((a, b) => a + Math.pow(b - avgPing, 2), 0) / allPings.length)
+                : 0;
             const sortedPings = [...allPings].sort((a, b) => a - b);
-            const p95Ping = sortedPings[Math.floor(sortedPings.length * 0.95)];
+            const p95Ping = sortedPings.length > 0 ? sortedPings[Math.floor(sortedPings.length * 0.95)] : 0;
             const sortedJitters = [...allJitters].sort((a, b) => a - b);
             const p95Jitter = sortedJitters.length > 0 ? sortedJitters[Math.floor(sortedJitters.length * 0.95)] : 0;
 
@@ -128,7 +135,24 @@ window.nfsCalibration = {
             const clampedMin = Math.max(-10, Math.min(10, rawMin));
             const clampedMax = Math.max(-10, Math.min(10, Math.max(clampedMin, rawMax)));
 
+            const isHealthy = avgJitter < 20 && pingStdDev < 30 && avgFPS >= 30 && totalResyncs === 0;
+            const hasSpikes = maxJitter > 100 || (maxPing - minPing) > 150;
+            const highResyncs = resyncsPerSecond > 1;
+            const lowFPS = avgFPS < 30;
+
+            console.log(`\n=== [${label}] FINAL RESULTS ===`);
+            console.log(`Ping: ${avgPing}ms avg | ${minPing}ms min | ${maxPing}ms max | ${p95Ping}ms p95`);
+            console.log(`Jitter: ${avgJitter}ms avg | ${maxJitter}ms max | ${p95Jitter}ms p95`);
+            console.log(`FPS: ${avgFPS} avg | ${minFPS} min`);
+            console.log(`Resyncs: ${totalResyncs} total | ${resyncsPerSecond}/sec`);
+            console.log(`Health: ${isHealthy ? 'GOOD' : 'POOR'}`);
+            if (hasSpikes) console.log('WARNING: High ping/jitter spikes');
+            if (highResyncs) console.log('WARNING: High resync rate');
+            if (lowFPS) console.log('WARNING: Low FPS');
+            console.log(`Recommended NFS: min ${clampedMin} max ${clampedMax}`);
+
             onComplete({ clampedMin, clampedMax, avgPing, avgJitter, avgFPS, totalResyncs, resyncsPerSecond, p95Ping, p95Jitter, pingStdDev, minPing, maxPing, maxJitter, minFPS, msPerFrame });
+
         }, 30000);
     },
 
@@ -146,4 +170,5 @@ window.nfsCalibration = {
         });
     }
 };
+
 console.log('NFS calibration engine loaded. Run openNFSUI() to start.');
