@@ -106,7 +106,7 @@ overlay.innerHTML = `
   <div id="nfs-modal">
     <button id="nfs-close">✕</button>
     <div id="nfs-title">NFS Calibration</div>
-    <div id="nfs-subtitle">Auto-tunes Network Frame Shift for your connection</div>
+    <div id="nfs-subtitle">Auto-tunes Network Frame Shift for your connection (MUST be in a game)</div>
     <div id="nfs-btn-wrap">
       <button class="nfs-button" id="nfs-start-btn"><span>Start Calibration</span></button>
     </div>
